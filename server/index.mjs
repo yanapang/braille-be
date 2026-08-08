@@ -8,6 +8,7 @@ const liblouis = require("liblouis");
 
 const app = express();
 const port = Number(process.env.PORT ?? process.env.TRANSLATOR_PORT ?? 8787);
+const host = process.env.HOST ?? process.env.TRANSLATOR_HOST ?? "0.0.0.0";
 const translatorVersion = `liblouis-${liblouis.version()}`;
 const translationStandard = "UEB-2024";
 const liblouisBuildDir = path.dirname(require.resolve("liblouis-build/package.json"));
@@ -64,6 +65,15 @@ app.post("/api/translate", (request, response) => {
   }
 });
 
-app.listen(port, "0.0.0.0", () => {
-  console.log(`Braille translator API listening on http://0.0.0.0:${port}`);
+const server = app.listen(port, host, () => {
+  console.log(`Braille translator API listening on http://${host}:${port}`);
+});
+
+server.on("error", (error) => {
+  console.error(
+    error instanceof Error
+      ? `Braille translator API failed to start: ${error.message}`
+      : "Braille translator API failed to start.",
+  );
+  process.exitCode = 1;
 });

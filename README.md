@@ -8,6 +8,8 @@ Express + liblouis translation API for English UEB 2024 Braille output.
 pnpm install
 pnpm dev
 pnpm run dev:local
+pnpm run docker:build
+pnpm run docker:run
 pnpm start
 pnpm run start:local
 ```
@@ -39,10 +41,17 @@ Recommended AWS deployment:
 
 ## Docker
 
-Build image from this directory:
+Build the local image:
 
 ```bash
-docker build -t braille-backend .
+pnpm run docker:build
+```
+
+Run it at `http://localhost:8787`:
+
+```bash
+pnpm run docker:run
+curl http://localhost:8787/api/health
 ```
 
 ## CI Template

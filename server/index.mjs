@@ -3,6 +3,15 @@ import express from "express";
 import path from "node:path";
 import { createRequire } from "node:module";
 
+/** metrics */
+import {
+  handleMetrics,
+  metricsMiddleware,
+  translateDurationSeconds,
+  translateInputLength,
+  translateRequestsTotal,
+} from "./metrics.mjs";
+
 const require = createRequire(import.meta.url);
 const liblouis = require("liblouis");
 
@@ -21,6 +30,7 @@ liblouis.enableOnDemandTableLoading(tableFolderPath);
 
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
+app.use(metricsMiddleware);
 
 app.get("/api/health", (_request, response) => {
   response.json({
@@ -30,11 +40,23 @@ app.get("/api/health", (_request, response) => {
   });
 });
 
+app.get("/metrics", handleMetrics);
+
 app.post("/api/translate", (request, response) => {
   const text = typeof request.body?.text === "string" ? request.body.text : "";
   const normalized = text.trim();
 
+  /** metric  */
+  const translationStart = process.hrtime.bigint();
+
   if (!normalized) {
+    translateRequestsTotal.inc({ outcome: "client_error" });
+    translateInputLength.observe({ outcome: "client_error" }, text.length);
+    translateDurationSeconds.observe(
+      { outcome: "client_error" },
+      Number(process.hrtime.bigint() - translationStart) / 1e9,
+    );
+
     response.status(400).json({ error: "Text is required for translation." });
     return;
   }
@@ -47,6 +69,14 @@ app.post("/api/translate", (request, response) => {
       throw new Error("Translation returned no result.");
     }
 
+    translateRequestsTotal.inc({ outcome: "success" });
+    translateInputLength.observe({ outcome: "success" }, text.length);
+    translateDurationSeconds.observe(
+      { outcome: "success" },
+      Number(process.hrtime.bigint() - translationStart) / 1e9,
+    );
+
+
     response.json({
       grade1Braille,
       grade2Braille,
@@ -56,6 +86,13 @@ app.post("/api/translate", (request, response) => {
       translationMode: "remote",
     });
   } catch (error) {
+    translateRequestsTotal.inc({ outcome: "server_error" });
+    translateInputLength.observe({ outcome: "server_error" }, text.length);
+    translateDurationSeconds.observe(
+      { outcome: "server_error" },
+      Number(process.hrtime.bigint() - translationStart) / 1e9,
+    );
+    
     response.status(500).json({
       error:
         error instanceof Error

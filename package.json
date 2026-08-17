@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "node --watch server/index.mjs",
     "dev:local": "HOST=127.0.0.1 node --watch server/index.mjs",
+    "docker:build": "docker build -t braille-backend:local .",
+    "docker:run": "docker run --rm -p 8787:8787 braille-backend:local",
     "start:local": "HOST=127.0.0.1 node server/index.mjs",
     "start": "node server/index.mjs"
   },
@@ -17,6 +19,7 @@
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "liblouis": "^0.4.0",
-    "liblouis-build": "3.2.0-rc"
+    "liblouis-build": "3.2.0-rc",
+    "prom-client": "^15.1.3"
   }
 }

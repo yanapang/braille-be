@@ -41,18 +41,29 @@ Recommended AWS deployment:
 
 ## Docker
 
-Build the local image:
+Make sure Docker Desktop or another local Docker server is running.
+
+Build the image with the `braille-backend:local` tag:
 
 ```bash
 pnpm run docker:build
 ```
 
-Run it at `http://localhost:8787`:
+Run the container and publish the API at `http://localhost:8787`:
 
 ```bash
 pnpm run docker:run
+```
+
+In another terminal, verify that the container is healthy:
+
+```bash
 curl http://localhost:8787/api/health
 ```
+
+Press `Ctrl+C` in the container terminal to stop it. The container is removed
+automatically after it stops, but the `braille-backend:local` image remains
+available for subsequent runs.
 
 ## CI Template
 

@@ -45,12 +45,23 @@ export const translateInputLength = new client.Histogram({
   registers: [register],
 });
 
+export function observeTranslation(outcome, inputLength, start) {
+  const labels = { outcome };
+
+  translateRequestsTotal.inc(labels);
+  translateInputLength.observe(labels, inputLength);
+  translateDurationSeconds.observe(
+    labels,
+    Number(process.hrtime.bigint() - start) / 1e9,
+  );
+}
+
 export function metricsMiddleware(request, response, next) {
   const start = process.hrtime.bigint();
 
   response.on("finish", () => {
     const durationSeconds = Number(process.hrtime.bigint() - start) / 1e9;
-    const route = request.route?.path ?? request.path ?? "unknown";
+    const route = request.route?.path ?? "unmatched";
     const labels = {
       method: request.method,
       route,

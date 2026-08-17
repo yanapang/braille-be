@@ -20,6 +20,19 @@ pnpm run start:local
 - Default host: `0.0.0.0`
 - Health check: `GET /api/health`
 - Translate endpoint: `POST /api/translate`
+- Prometheus metrics: `GET /metrics`
+
+HTTP requests are logged to standard output. Development uses Morgan's concise
+`dev` format; production uses Apache combined format.
+
+## Metrics
+
+The `/metrics` endpoint exposes Prometheus-compatible process, HTTP, and
+translation metrics with the `braille_` prefix. Translation requests are
+categorized as `success`, `client_error`, or `server_error`.
+
+Unknown request paths use the fixed `unmatched` route label to avoid creating
+unbounded Prometheus time series.
 
 ## Environment Variables
 

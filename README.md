@@ -12,6 +12,7 @@ pnpm run docker:build
 pnpm run docker:run
 pnpm start
 pnpm run start:local
+pnpm test
 ```
 
 ## Runtime
@@ -21,6 +22,7 @@ pnpm run start:local
 - Health check: `GET /api/health`
 - Translate endpoint: `POST /api/translate`
 - Prometheus metrics: `GET /metrics`
+- Lambda handler: `lambda/handler.mjs`
 
 HTTP requests are logged to standard output. Development uses Morgan's concise
 `dev` format; production uses Apache combined format.
@@ -41,16 +43,25 @@ unbounded Prometheus time series.
 - `TRANSLATOR_PORT` — alternate backend port variable
 - `TRANSLATOR_HOST` — alternate bind host variable
 - `CORS_ORIGIN` — comma-separated allowed origins
+- `MAX_TEXT_LENGTH` — maximum translation input length, default `5000`
 
 Use `pnpm run dev:local` or `pnpm run start:local` if your local environment does not allow binding to `0.0.0.0`.
 
 ## Deployment
 
-Recommended AWS deployment:
-- build Docker image
-- push image to registry
-- deploy on EC2 with Docker
-- put Nginx in front if you need domain routing and TLS termination
+The production target is AWS Lambda behind API Gateway HTTP API. The Lambda
+handler does not start Express and writes structured request logs without
+including the translated source text. Express and `/metrics` remain available
+for local development and container-based fallback deployments.
+
+The deployment workflow uses GitHub OIDC, publishes an immutable Lambda
+version, invokes its translation route, and only then moves the `live` alias. Set
+these GitHub Actions repository variables after Terraform has created the
+infrastructure:
+
+- `AWS_REGION`
+- `AWS_DEPLOY_ROLE_ARN`
+- `AWS_LAMBDA_FUNCTION_NAME`
 
 ## Docker
 
@@ -80,5 +91,5 @@ available for subsequent runs.
 
 ## CI Template
 
-GitHub Actions template for this backend repo lives at:
-- `.github/workflows/deploy-backend-ec2.yml`
+GitHub Actions deployment workflow for this backend repo lives at:
+- `.github/workflows/deploy-backend-lambda.yml`

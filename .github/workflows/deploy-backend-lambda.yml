@@ -1,0 +1,102 @@
+name: Deploy Backend to Lambda
+
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+concurrency:
+  group: backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      FUNCTION_NAME: ${{ vars.AWS_LAMBDA_FUNCTION_NAME }}
+      FUNCTION_ALIAS: live
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build Lambda package
+        run: |
+          mkdir -p \
+            lambda-package/lambda \
+            lambda-package/server \
+            lambda-package/node_modules/liblouis \
+            lambda-package/node_modules/liblouis-build
+          cp lambda/handler.mjs lambda-package/lambda/
+          cp server/translation.mjs lambda-package/server/
+          cp package.json lambda-package/
+          cp \
+            node_modules/liblouis/liblouis.js \
+            node_modules/liblouis/easy-api.js \
+            node_modules/liblouis/package.json \
+            node_modules/liblouis/LICENSE \
+            lambda-package/node_modules/liblouis/
+          cp \
+            node_modules/liblouis-build/build-no-tables-utf16.js \
+            node_modules/liblouis-build/package.json \
+            node_modules/liblouis-build/README.md \
+            lambda-package/node_modules/liblouis-build/
+          cp -R \
+            node_modules/liblouis-build/tables \
+            lambda-package/node_modules/liblouis-build/
+          cd lambda-package
+          zip -qry ../lambda.zip .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Publish and verify version
+        id: publish
+        run: |
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://lambda.zip
+          aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"
+
+          VERSION="$(aws lambda publish-version \
+            --function-name "$FUNCTION_NAME" \
+            --query Version \
+            --output text)"
+
+          aws lambda invoke \
+            --function-name "$FUNCTION_NAME" \
+            --qualifier "$VERSION" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"version":"2.0","rawPath":"/api/translate","body":"{\"text\":\"with\"}","requestContext":{"requestId":"deployment-smoke-test","http":{"method":"POST","path":"/api/translate"}}}' \
+            response.json
+
+          jq -e '.statusCode == 200 and (.body | fromjson | .grade2Braille == "⠾")' response.json
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Promote verified version
+        run: |
+          aws lambda update-alias \
+            --function-name "$FUNCTION_NAME" \
+            --name "$FUNCTION_ALIAS" \
+            --function-version "${{ steps.publish.outputs.version }}"

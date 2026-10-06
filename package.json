@@ -13,7 +13,8 @@
     "docker:build": "docker build -t braille-backend:local .",
     "docker:run": "docker run --rm -p 8787:8787 braille-backend:local",
     "start:local": "NODE_ENV=production HOST=127.0.0.1 node server/index.mjs",
-    "start": "NODE_ENV=production node server/index.mjs"
+    "start": "NODE_ENV=production node server/index.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "cors": "^2.8.5",
